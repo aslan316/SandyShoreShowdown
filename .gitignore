@@ -1,3 +1,6 @@
+# Vim tmp file
+*.swp
+
 # Prerequisites
 *.d
 
