@@ -12,7 +12,7 @@ message(STATUS "SandyShoreShowdown Build Type: ${CMAKE_BUILD_TYPE}")
 
 # Set the version for SandyShoreShowdown
 set(SandyShoreShowdown_Version_Major 0)
-set(SandyShoreShowdown_Version_Minor 1)
+set(SandyShoreShowdown_Version_Minor 3)
 set(SandyShoreShowdown_Version_Patch 0)
 set(SandyShoreShowdown_Version_Status "-dev")
 set(PROJECT_VERSION
