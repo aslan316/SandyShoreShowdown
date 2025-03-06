@@ -13,7 +13,8 @@ typedef enum {
   POWER_UP_DOUBLE_FIRE_DAMAGE = 4,
   POWER_UP_DOUBLE_ENEMY_DAMAGE = 8,
   POWER_UP_SPREAD = 16,
-  BOX = 32
+  BOX = 32,
+  PROJECTILE = 64,
 } ParticleType;
 
 typedef struct {
@@ -53,6 +54,8 @@ void particle_update_system(ParticleSystem *system);
 void particle_update(Particle *particle);
 void particle_create(Particle *particle);
 void particle_system_create_particle(ParticleSystem *system);
+void particle_animate(Particle *particle, unsigned long frameCount);
+void particle_update_animation(ParticleSystem *system, unsigned long count);
 
 int main(void) {
 
@@ -60,14 +63,16 @@ int main(void) {
   SetTargetFPS(60);
   particle_init();
   ParticleSystem *system = particle_system_init(20);
+  unsigned long count = 0;
 
   while (!WindowShouldClose()) {
-
+    count++;
     if (GetRandomValue(0, 100) > 80) {
       particle_system_create_particle(system);
     }
-
     particle_update_system(system);
+    particle_update_animation(system, count);
+
     BeginDrawing();
 
     ClearBackground(RAYWHITE);
@@ -95,7 +100,11 @@ ParticleSystem *particle_system_init(int speed) {
 void particle_system_free(ParticleSystem *system) { MemFree(system); }
 
 void particle_draw(Particle *particle) {
-  DrawTexture(particle->image, particle->x, particle->y, WHITE);
+  int frame = particle->frameNumber % particle->numberOfFrames;
+  Rectangle source = {frame * particle->frameWidth, 0, particle->frameWidth,
+                      particle->frameHeight};
+  Vector2 position = {particle->x, particle->y};
+  DrawTextureRec(particle->image, source, position, WHITE);
 }
 
 void particle_draw_system(ParticleSystem *system) {
@@ -141,11 +150,11 @@ void particle_init() {
   powerupParticles[0].dx = 0;
   powerupParticles[0].dy = 1;
   powerupParticles[0].image = LoadTexture("../src/assets/images/crate.png");
-  powerupParticles[0].w = 32;
-  powerupParticles[0].h = 32;
-  powerupParticles[0].frameWidth = 32;
-  powerupParticles[0].frameHeight = 32;
-  powerupParticles[0].numberOfFrames = 1;
+  powerupParticles[0].w = 48;
+  powerupParticles[0].h = 25;
+  powerupParticles[0].frameWidth = 24;
+  powerupParticles[0].frameHeight = 25;
+  powerupParticles[0].numberOfFrames = 2;
   powerupParticles[0].frameNumber = 0;
   powerupParticles[0].health = 10;
   powerupParticles[0].type = BOX;
@@ -153,77 +162,78 @@ void particle_init() {
 
   powerupParticles[1].dx = 0;
   powerupParticles[1].dy = 1;
-  powerupParticles[1].image = LoadTexture("../src/assets/images/cake_slice.png");
-  powerupParticles[1].w = 32;
-  powerupParticles[1].h = 32;
-  powerupParticles[1].frameWidth = 32;
-  powerupParticles[1].frameHeight = 32;
-  powerupParticles[1].numberOfFrames = 1;
+  powerupParticles[1].image =
+      LoadTexture("../src/assets/images/cake_slice.png");
+  powerupParticles[1].w = 60;
+  powerupParticles[1].h = 28;
+  powerupParticles[1].frameWidth = 30;
+  powerupParticles[1].frameHeight = 28;
+  powerupParticles[1].numberOfFrames = 2;
   powerupParticles[1].frameNumber = 0;
-  powerupParticles[1].health = 10;
+  powerupParticles[1].health = 0;
   powerupParticles[1].type = POWER_UP_HEALTH;
   powerupParticles[1].isAlive = true;
 
   powerupParticles[2].dx = 0;
   powerupParticles[2].dy = 1;
   powerupParticles[2].image = LoadTexture("../src/assets/images/coconut.png");
-  powerupParticles[2].w = 32;
-  powerupParticles[2].h = 32;
-  powerupParticles[2].frameWidth = 32;
-  powerupParticles[2].frameHeight = 32;
-  powerupParticles[2].numberOfFrames = 1;
+  powerupParticles[2].w = 17 * 3;
+  powerupParticles[2].h = 20;
+  powerupParticles[2].frameWidth = 17;
+  powerupParticles[2].frameHeight = 20;
+  powerupParticles[2].numberOfFrames = 3;
   powerupParticles[2].frameNumber = 0;
-  powerupParticles[2].health = 10;
+  powerupParticles[2].health = 0;
   powerupParticles[2].type = POWER_UP_INVIS;
   powerupParticles[2].isAlive = true;
 
   powerupParticles[3].dx = 0;
   powerupParticles[3].dy = 1;
   powerupParticles[3].image = LoadTexture("../src/assets/images/mango.png");
-  powerupParticles[3].w = 32;
-  powerupParticles[3].h = 32;
-  powerupParticles[3].frameWidth = 32;
-  powerupParticles[3].frameHeight = 32;
-  powerupParticles[3].numberOfFrames = 1;
+  powerupParticles[3].w = 175;
+  powerupParticles[3].h = 27;
+  powerupParticles[3].frameWidth = 175 / 7;
+  powerupParticles[3].frameHeight = 27;
+  powerupParticles[3].numberOfFrames = 7;
   powerupParticles[3].frameNumber = 0;
-  powerupParticles[3].health = 10;
+  powerupParticles[3].health = 0;
   powerupParticles[3].type = POWER_UP_DOUBLE_FIRE_DAMAGE;
   powerupParticles[3].isAlive = true;
 
   powerupParticles[4].dx = 0;
   powerupParticles[4].dy = 1;
-  powerupParticles[4].image = LoadTexture("../src/assets/images/not_coke.png");
-  powerupParticles[4].w = 32;
+  powerupParticles[4].image = LoadTexture("../src/assets/images/soda.png");
+  powerupParticles[4].w = 48;
   powerupParticles[4].h = 32;
-  powerupParticles[4].frameWidth = 32;
+  powerupParticles[4].frameWidth = 48 / 4;
   powerupParticles[4].frameHeight = 32;
-  powerupParticles[4].numberOfFrames = 1;
+  powerupParticles[4].numberOfFrames = 4;
   powerupParticles[4].frameNumber = 0;
-  powerupParticles[4].health = 10;
+  powerupParticles[4].health = 0;
   powerupParticles[4].type = POWER_UP_DOUBLE_ENEMY_DAMAGE;
   powerupParticles[4].isAlive = true;
 
   powerupParticles[5].dx = 0;
   powerupParticles[5].dy = 1;
   powerupParticles[5].image = LoadTexture("../src/assets/images/tea.png");
-  powerupParticles[5].w = 32;
-  powerupParticles[5].h = 32;
-  powerupParticles[5].frameWidth = 32;
-  powerupParticles[5].frameHeight = 32;
-  powerupParticles[5].numberOfFrames = 1;
+  powerupParticles[5].w = 39;
+  powerupParticles[5].h = 21;
+  powerupParticles[5].frameWidth = 39 / 3;
+  powerupParticles[5].frameHeight = 21;
+  powerupParticles[5].numberOfFrames = 3;
   powerupParticles[5].frameNumber = 0;
-  powerupParticles[5].health = 10;
+  powerupParticles[5].health = 0;
   powerupParticles[5].type = POWER_UP_SPREAD;
   powerupParticles[5].isAlive = true;
 
   enemyParticles[0].dx = 0;
   enemyParticles[0].dy = 1;
   enemyParticles[0].image = LoadTexture("../src/assets/images/straw.png");
-  enemyParticles[0].w = 32;
-  enemyParticles[0].h = 32;
-  enemyParticles[0].frameWidth = 32;
-  enemyParticles[0].frameHeight = 32;
-  enemyParticles[0].numberOfFrames = 1;
+  enemyParticles[0].w = 124;
+  enemyParticles[0].h = 30;
+  enemyParticles[0].frameWidth = 124 / 4;
+  enemyParticles[0].frameHeight = 30;
+  enemyParticles[0].numberOfFrames = 4;
   enemyParticles[0].frameNumber = 0;
   enemyParticles[0].health = 3;
   enemyParticles[0].type = ENEMY;
@@ -232,11 +242,11 @@ void particle_init() {
   enemyParticles[1].dx = 0;
   enemyParticles[1].dy = 1;
   enemyParticles[1].image = LoadTexture("../src/assets/images/rings.png");
-  enemyParticles[1].w = 32;
+  enemyParticles[1].w = 64;
   enemyParticles[1].h = 32;
   enemyParticles[1].frameWidth = 32;
   enemyParticles[1].frameHeight = 32;
-  enemyParticles[1].numberOfFrames = 1;
+  enemyParticles[1].numberOfFrames = 2;
   enemyParticles[1].frameNumber = 0;
   enemyParticles[1].health = 6;
   enemyParticles[1].type = ENEMY;
@@ -245,11 +255,11 @@ void particle_init() {
   enemyParticles[2].dx = 0;
   enemyParticles[2].dy = 1;
   enemyParticles[2].image = LoadTexture("../src/assets/images/anchor.png");
-  enemyParticles[2].w = 32;
-  enemyParticles[2].h = 32;
-  enemyParticles[2].frameWidth = 32;
-  enemyParticles[2].frameHeight = 32;
-  enemyParticles[2].numberOfFrames = 1;
+  enemyParticles[2].w = 48;
+  enemyParticles[2].h = 24;
+  enemyParticles[2].frameWidth = 24;
+  enemyParticles[2].frameHeight = 24;
+  enemyParticles[2].numberOfFrames = 2;
   enemyParticles[2].frameNumber = 0;
   enemyParticles[2].health = 9;
   enemyParticles[2].type = ENEMY;
@@ -258,11 +268,11 @@ void particle_init() {
   enemyParticles[3].dx = 0;
   enemyParticles[3].dy = 1;
   enemyParticles[3].image = LoadTexture("../src/assets/images/jellyfish.png");
-  enemyParticles[3].w = 32;
+  enemyParticles[3].w = 96;
   enemyParticles[3].h = 32;
   enemyParticles[3].frameWidth = 32;
   enemyParticles[3].frameHeight = 32;
-  enemyParticles[3].numberOfFrames = 1;
+  enemyParticles[3].numberOfFrames = 3;
   enemyParticles[3].frameNumber = 0;
   enemyParticles[3].health = 9;
   enemyParticles[3].type = ENEMY;
@@ -271,11 +281,11 @@ void particle_init() {
   enemyParticles[4].dx = 0;
   enemyParticles[4].dy = 1;
   enemyParticles[4].image = LoadTexture("../src/assets/images/oil.png");
-  enemyParticles[4].w = 32;
-  enemyParticles[4].h = 32;
-  enemyParticles[4].frameWidth = 32;
-  enemyParticles[4].frameHeight = 32;
-  enemyParticles[4].numberOfFrames = 1;
+  enemyParticles[4].w = 40;
+  enemyParticles[4].h = 17;
+  enemyParticles[4].frameWidth = 20;
+  enemyParticles[4].frameHeight = 17;
+  enemyParticles[4].numberOfFrames = 2;
   enemyParticles[4].frameNumber = 0;
   enemyParticles[4].health = 32768;
   enemyParticles[4].type = ENEMY;
@@ -293,13 +303,13 @@ void particle_init() {
   bossParticles[0].health = 25;
   bossParticles[0].type = ENEMY;
   bossParticles[0].isAlive = true;
-  
+
   bossParticles[1].dx = 0;
   bossParticles[1].dy = 1;
   bossParticles[1].image = LoadTexture("../src/assets/images/eel.png");
-  bossParticles[1].w = 64 * 4;
+  bossParticles[1].w = 320;
   bossParticles[1].h = 64;
-  bossParticles[1].frameWidth = 64;
+  bossParticles[1].frameWidth = 320 / 5;
   bossParticles[1].frameHeight = 64;
   bossParticles[1].numberOfFrames = 4;
   bossParticles[1].frameNumber = 0;
@@ -310,10 +320,10 @@ void particle_init() {
   bossParticles[2].dx = 0;
   bossParticles[2].dy = 1;
   bossParticles[2].image = LoadTexture("../src/assets/images/kraken.png");
-  bossParticles[2].w = 64 * 3;
-  bossParticles[2].h = 64;
-  bossParticles[2].frameWidth = 64;
-  bossParticles[2].frameHeight = 64;
+  bossParticles[2].w = 192;
+  bossParticles[2].h = 58;
+  bossParticles[2].frameWidth = 192 / 3;
+  bossParticles[2].frameHeight = 58;
   bossParticles[2].numberOfFrames = 3;
   bossParticles[2].frameNumber = 0;
   bossParticles[2].health = 100;
@@ -330,5 +340,17 @@ void particle_free() {
   }
   for (int i = 0; i < 3; i++) {
     UnloadTexture(bossParticles[i].image);
+  }
+}
+
+void particle_animate(Particle *particle, unsigned long frameCount) {
+  if (frameCount % 30 == 0) {
+    particle->frameNumber++;
+  }
+}
+
+void particle_update_animation(ParticleSystem *system, unsigned long count) {
+  for (int i = 0; i < MAX_PARTICLES; i++) {
+    particle_animate(&system->particles[i], count);
   }
 }
