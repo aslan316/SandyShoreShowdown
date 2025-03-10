@@ -53,7 +53,9 @@ void particle_draw_system(ParticleSystem *system);
 void particle_update_system(ParticleSystem *system);
 void particle_update(Particle *particle);
 void particle_create(Particle *particle);
-void particle_system_create_particle(ParticleSystem *system);
+void particle_enemy_system_create_particle(ParticleSystem *system);
+void particle_boss_system_create_particle(ParticleSystem *system);
+void particle_power_system_create_particle(ParticleSystem *system);
 void particle_animate(Particle *particle, unsigned long frameCount);
 void particle_update_animation(ParticleSystem *system, unsigned long count);
 
@@ -62,26 +64,42 @@ int main(void) {
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sandy Shore Tech Demo 1");
   SetTargetFPS(60);
   particle_init();
-  ParticleSystem *system = particle_system_init(20);
+  ParticleSystem *enemies = particle_system_init(20);
+  ParticleSystem *bosses = particle_system_init(5);
+  ParticleSystem *powerups = particle_system_init(10);
   unsigned long count = 0;
 
   while (!WindowShouldClose()) {
     count++;
     if (GetRandomValue(0, 100) > 80) {
-      particle_system_create_particle(system);
+      particle_enemy_system_create_particle(enemies);
     }
-    particle_update_system(system);
-    particle_update_animation(system, count);
+    particle_update_system(enemies);
+    particle_update_animation(enemies, count);
+
+    if (GetRandomValue(0, 200) > 180) {
+      particle_boss_system_create_particle(bosses);
+    }
+    particle_update_system(bosses);
+    particle_update_animation(bosses, count);
+
+    if (GetRandomValue(0, 100) > 90) {
+      particle_power_system_create_particle(powerups);
+    }
+    particle_update_system(powerups);
+    particle_update_animation(powerups, count);
 
     BeginDrawing();
 
     ClearBackground(RAYWHITE);
-    particle_draw_system(system);
+    particle_draw_system(enemies);
+    particle_draw_system(bosses);
+    particle_draw_system(powerups);
     EndDrawing();
   }
 
   CloseWindow();
-  particle_system_free(system);
+  particle_system_free(enemies);
   particle_free();
 
   return 0;
@@ -137,10 +155,43 @@ void particle_create_enemy(Particle *particle) {
   particle->x = GetRandomValue(0, SCREEN_WIDTH);
   particle->isAlive = true;
 }
-void particle_system_create_particle(ParticleSystem *system) {
+
+void particle_create_powerups(Particle *particle) {
+  int random = GetRandomValue(0, 5);
+  memcpy(particle, &powerupParticles[random], sizeof(Particle));
+  particle->x = GetRandomValue(0, SCREEN_WIDTH);
+  particle->isAlive = true;
+}
+
+void particle_create_boss(Particle *particle) {
+  int random = GetRandomValue(0, 2);
+  memcpy(particle, &bossParticles[random], sizeof(Particle));
+  particle->x = GetRandomValue(0, SCREEN_WIDTH);
+  particle->isAlive = true;
+}
+
+void particle_enemy_system_create_particle(ParticleSystem *system) {
   for (int i = 0; i < MAX_PARTICLES; i++) {
     if (!system->particles[i].isAlive) {
       particle_create_enemy(&system->particles[i]);
+      return;
+    }
+  }
+}
+
+void particle_power_system_create_particle(ParticleSystem *system) {
+  for (int i = 0; i < MAX_PARTICLES; i++) {
+    if (!system->particles[i].isAlive) {
+      particle_create_powerups(&system->particles[i]);
+      return;
+    }
+  }
+}
+
+void particle_boss_system_create_particle(ParticleSystem *system) {
+  for (int i = 0; i < MAX_PARTICLES; i++) {
+    if (!system->particles[i].isAlive) {
+      particle_create_boss(&system->particles[i]);
       return;
     }
   }
@@ -311,7 +362,7 @@ void particle_init() {
   bossParticles[1].h = 64;
   bossParticles[1].frameWidth = 320 / 5;
   bossParticles[1].frameHeight = 64;
-  bossParticles[1].numberOfFrames = 4;
+  bossParticles[1].numberOfFrames = 5;
   bossParticles[1].frameNumber = 0;
   bossParticles[1].health = 50;
   bossParticles[1].type = ENEMY;
