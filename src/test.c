@@ -1,5 +1,5 @@
 #include "raylib.h"
-#include <stdlib.h>
+#include <math.h>
 #include <string.h>
 
 #define MAX_PARTICLES 50
@@ -27,8 +27,8 @@ typedef enum {
   POWERUP = 4096 * 16,
 } ParticleType;
 
-#define SINGLE_LINE_PATTERN COUNT 6
-ParticleType signleLinePatterns[6][5] = {
+#define SINGLE_LINE_PATTERN_COUNT 6
+ParticleType singleLinePatterns[6][5] = {
     {ENEMY, ENEMY, ENEMY, ENEMY, ENEMY}, {GAP, ENEMY, POWERUP, ENEMY, GAP},
     {GAP, GAP, GAP, GAP, GAP},           {ENEMY, ENEMY, GAP, GAP, ENEMY},
     {POWERUP, GAP, ENEMY, ENEMY, GAP},   {ENEMY, ENEMY, GAP, ENEMY, POWERUP}};
@@ -91,14 +91,17 @@ void particle_create(Particle *particle);
 void particle_animate(Particle *particle, unsigned long frameCount);
 void particle_update_animation(ParticleSystem *system, unsigned long count);
 
-void particle_boss_system_create_particle(ParticleSystem *system);
-void particle_power_system_create_particle(ParticleSystem *system);
-void particle_enemy_system_create_particle(ParticleSystem *system);
-void particle_create_boss(Particle *particle);
-void particle_create_powerup(Particle *particle);
-void particle_create_enemy(Particle *particle);
+void particle_boss_system_create_particle(ParticleSystem *system,
+                                          int particleType, int x);
+void particle_power_system_create_particle(ParticleSystem *system,
+                                           int particleType, int x);
+void particle_enemy_system_create_particle(ParticleSystem *system,
+                                           int particleType, int x);
+void particle_create_boss(Particle *particle, int particleType, int x);
+void particle_create_powerup(Particle *particle, int particleType, int x);
+void particle_create_enemy(Particle *particle, int particleType, int x);
 void particle_queue_pattern(ParticleSystem *powerup, ParticleSystem *enemy,
-                            ParticleSystem *boss, unsigned long framCount);
+                            ParticleSystem *boss, unsigned long frameCount);
 int interval(unsigned long frameCount, const int fps);
 int gap(unsigned long frameCount);
 
@@ -116,21 +119,14 @@ int main() {
 
   while (!WindowShouldClose()) {
     count++;
-    if (GetRandomValue(0, 100) > 80) {
-      particle_enemy_system_create_particle(enemies);
-    }
+    particle_queue_pattern(powerups, enemies, bosses, count);
+
     particle_update_system(enemies);
     particle_update_animation(enemies, count);
 
-    if (GetRandomValue(0, 200) > 180) {
-      particle_boss_system_create_particle(bosses);
-    }
     particle_update_system(bosses);
     particle_update_animation(bosses, count);
 
-    if (GetRandomValue(0, 100) > 90) {
-      particle_power_system_create_particle(powerups);
-    }
     particle_update_system(powerups);
     particle_update_animation(powerups, count);
 
@@ -196,49 +192,52 @@ void particle_update(Particle *particle) {
   }
 }
 
-void particle_create_enemy(Particle *particle) {
-  int random = GetRandomValue(0, 4);
-  memcpy(particle, &enemyParticles[random], sizeof(Particle));
-  particle->x = GetRandomValue(0, SCREEN_WIDTH);
+void particle_create_enemy(Particle *particle, int particleType, int x) {
+  memcpy(particle, &enemyParticles[particleType], sizeof(Particle));
+  particle->x = x;
+  particle->y = -particle->frameHeight;
   particle->isAlive = true;
 }
 
-void particle_create_powerup(Particle *particle) {
-  int random = GetRandomValue(0, 5);
-  memcpy(particle, &powerupParticles[random], sizeof(Particle));
-  particle->x = GetRandomValue(0, SCREEN_WIDTH);
+void particle_create_powerup(Particle *particle, int particleType, int x) {
+  memcpy(particle, &powerupParticles[particleType], sizeof(Particle));
+  particle->x = x;
+  particle->y = -particle->frameHeight;
   particle->isAlive = true;
 }
 
-void particle_create_boss(Particle *particle) {
-  int random = GetRandomValue(0, 2);
-  memcpy(particle, &bossParticles[random], sizeof(Particle));
-  particle->x = GetRandomValue(0, SCREEN_WIDTH);
+void particle_create_boss(Particle *particle, int particleType, int x) {
+  memcpy(particle, &bossParticles[particleType], sizeof(Particle));
+  particle->x = x;
+  particle->y = -particle->frameHeight;
   particle->isAlive = true;
 }
 
-void particle_enemy_system_create_particle(ParticleSystem *system) {
+void particle_enemy_system_create_particle(ParticleSystem *system,
+                                           int particleType, int x) {
   for (int i = 0; i < MAX_PARTICLES; i++) {
     if (!system->particles[i].isAlive) {
-      particle_create_enemy(&system->particles[i]);
+      particle_create_enemy(&system->particles[i], particleType, x);
       return;
     }
   }
 }
 
-void particle_power_system_create_particle(ParticleSystem *system) {
+void particle_power_system_create_particle(ParticleSystem *system,
+                                           int particleType, int x) {
   for (int i = 0; i < MAX_PARTICLES; i++) {
     if (!system->particles[i].isAlive) {
-      particle_create_powerup(&system->particles[i]);
+      particle_create_powerup(&system->particles[i], particleType, x);
       return;
     }
   }
 }
 
-void particle_boss_system_create_particle(ParticleSystem *system) {
+void particle_boss_system_create_particle(ParticleSystem *system,
+                                          int particleType, int x) {
   for (int i = 0; i < MAX_PARTICLES; i++) {
     if (!system->particles[i].isAlive) {
-      particle_create_boss(&system->particles[i]);
+      particle_create_boss(&system->particles[i], particleType, x);
       return;
     }
   }
@@ -468,6 +467,23 @@ void particle_queue_pattern(ParticleSystem *powerup, ParticleSystem *enemy,
     }
   }
   // Do I delay generation?
+  int r = GetRandomValue(0, SINGLE_LINE_PATTERN_COUNT - 1);
+  for (int i = 0; i < 5; i++) {
+    switch ((int)singleLinePatterns[r][i]) {
+    case ENEMY:
+      int e = GetRandomValue(0, 4);
+      particle_enemy_system_create_particle(enemy, e, i * 32);
+      break;
+    case POWERUP:
+      break;
+    case BOSS_ORCA:
+      break;
+    case BOSS_EEL:
+      break;
+    case BOSS_KRAKEN:
+      break;
+    }
+  }
   // Do I generate a single line or multiple pattern
   // Which patterd do I choose:
 }
@@ -488,6 +504,6 @@ int interval(unsigned long frameCount, const int fps) {
 }
 
 int gap(unsigned long frameCount) {
-  int delay = 8 - 2 * interval(frameCount, 60);
+  int delay = 8 - 2 * interval(frameCount, GetFPS());
   return delay > 0 ? delay : 0;
 }
