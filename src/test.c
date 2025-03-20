@@ -15,7 +15,42 @@ typedef enum {
   POWER_UP_SPREAD = 16,
   BOX = 32,
   PROJECTILE = 64,
+  BOSS_ORCA = 128,
+  BOSS_EEL = 256,
+  BOSS_KRAKEN = 512,
+  ENEMY_RINGS = 1024,
+  ENEMY_OIL = 2048,
+  ENEMY_STRAW = 4096,
+  ENEMY_JELLYFISH = 4096 * 2,
+  ENEMY_ANCHOR = 4096 * 4,
+  GAP = 4096 * 8,
+  POWERUP = 4096 * 16,
 } ParticleType;
+
+#define SINGLE_LINE_PATTERN COUNT 6
+ParticleType signleLinePatterns[6][5] = {
+    {ENEMY, ENEMY, ENEMY, ENEMY, ENEMY}, {GAP, ENEMY, POWERUP, ENEMY, GAP},
+    {GAP, GAP, GAP, GAP, GAP},           {ENEMY, ENEMY, GAP, GAP, ENEMY},
+    {POWERUP, GAP, ENEMY, ENEMY, GAP},   {ENEMY, ENEMY, GAP, ENEMY, POWERUP}};
+
+#define MULTI_LINE_PATTERN_COUNT 4
+ParticleType multipleLinePattern[12][5] = {
+    {ENEMY, ENEMY, ENEMY, ENEMY, ENEMY},
+    {ENEMY, ENEMY, BOSS_EEL, ENEMY, ENEMY},
+    {ENEMY, ENEMY, GAP, ENEMY, ENEMY},
+
+    {ENEMY, BOSS_EEL, ENEMY, BOSS_EEL, ENEMY},
+    {ENEMY, GAP, ENEMY, GAP, ENEMY},
+    {ENEMY, ENEMY, ENEMY, ENEMY, ENEMY},
+
+    {ENEMY, ENEMY, ENEMY, ENEMY, ENEMY},
+    {BOSS_ORCA, GAP, ENEMY, BOSS_ORCA, GAP},
+    {GAP, GAP, ENEMY, GAP, GAP},
+
+    {ENEMY, ENEMY, ENEMY, ENEMY, ENEMY},
+    {GAP, ENEMY, POWERUP, ENEMY, GAP},
+    {GAP, GAP, GAP, GAP, GAP},
+};
 
 typedef struct {
   int x;
@@ -53,15 +88,25 @@ void particle_draw_system(ParticleSystem *system);
 void particle_update_system(ParticleSystem *system);
 void particle_update(Particle *particle);
 void particle_create(Particle *particle);
-void particle_enemy_system_create_particle(ParticleSystem *system);
-void particle_boss_system_create_particle(ParticleSystem *system);
-void particle_power_system_create_particle(ParticleSystem *system);
 void particle_animate(Particle *particle, unsigned long frameCount);
 void particle_update_animation(ParticleSystem *system, unsigned long count);
 
-int main(void) {
+void particle_boss_system_create_particle(ParticleSystem *system);
+void particle_power_system_create_particle(ParticleSystem *system);
+void particle_enemy_system_create_particle(ParticleSystem *system);
+void particle_create_boss(Particle *particle);
+void particle_create_powerup(Particle *particle);
+void particle_create_enemy(Particle *particle);
+void particle_queue_pattern(ParticleSystem *powerup, ParticleSystem *enemy,
+                            ParticleSystem *boss, unsigned long framCount);
+int interval(unsigned long frameCount, const int fps);
+int gap(unsigned long frameCount);
 
-  InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sandy Shore Tech Demo 1");
+unsigned long lastPatternTime = 0;
+
+int main() {
+
+  InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sandy Shore Tech Demo 4");
   SetTargetFPS(60);
   particle_init();
   ParticleSystem *enemies = particle_system_init(20);
@@ -100,6 +145,8 @@ int main(void) {
 
   CloseWindow();
   particle_system_free(enemies);
+  particle_system_free(powerups);
+  particle_system_free(bosses);
   particle_free();
 
   return 0;
@@ -156,7 +203,7 @@ void particle_create_enemy(Particle *particle) {
   particle->isAlive = true;
 }
 
-void particle_create_powerups(Particle *particle) {
+void particle_create_powerup(Particle *particle) {
   int random = GetRandomValue(0, 5);
   memcpy(particle, &powerupParticles[random], sizeof(Particle));
   particle->x = GetRandomValue(0, SCREEN_WIDTH);
@@ -182,7 +229,7 @@ void particle_enemy_system_create_particle(ParticleSystem *system) {
 void particle_power_system_create_particle(ParticleSystem *system) {
   for (int i = 0; i < MAX_PARTICLES; i++) {
     if (!system->particles[i].isAlive) {
-      particle_create_powerups(&system->particles[i]);
+      particle_create_powerup(&system->particles[i]);
       return;
     }
   }
@@ -222,20 +269,20 @@ void particle_init() {
   powerupParticles[1].numberOfFrames = 2;
   powerupParticles[1].frameNumber = 0;
   powerupParticles[1].health = 0;
-  powerupParticles[1].type = POWER_UP_HEALTH;
+  powerupParticles[1].type = POWER_UP_HEALTH | BOX;
   powerupParticles[1].isAlive = true;
 
   powerupParticles[2].dx = 0;
   powerupParticles[2].dy = 1;
   powerupParticles[2].image = LoadTexture("../src/assets/images/coconut.png");
-  powerupParticles[2].w = 17 * 3;
-  powerupParticles[2].h = 20;
-  powerupParticles[2].frameWidth = 17;
-  powerupParticles[2].frameHeight = 20;
+  powerupParticles[2].w = 102;
+  powerupParticles[2].h = 40;
+  powerupParticles[2].frameWidth = 102 / 3;
+  powerupParticles[2].frameHeight = 40;
   powerupParticles[2].numberOfFrames = 3;
   powerupParticles[2].frameNumber = 0;
   powerupParticles[2].health = 0;
-  powerupParticles[2].type = POWER_UP_INVIS;
+  powerupParticles[2].type = POWER_UP_INVIS | BOX;
   powerupParticles[2].isAlive = true;
 
   powerupParticles[3].dx = 0;
@@ -248,20 +295,20 @@ void particle_init() {
   powerupParticles[3].numberOfFrames = 7;
   powerupParticles[3].frameNumber = 0;
   powerupParticles[3].health = 0;
-  powerupParticles[3].type = POWER_UP_DOUBLE_FIRE_DAMAGE;
+  powerupParticles[3].type = POWER_UP_DOUBLE_FIRE_DAMAGE | BOX;
   powerupParticles[3].isAlive = true;
 
   powerupParticles[4].dx = 0;
   powerupParticles[4].dy = 1;
   powerupParticles[4].image = LoadTexture("../src/assets/images/soda.png");
-  powerupParticles[4].w = 48;
-  powerupParticles[4].h = 32;
-  powerupParticles[4].frameWidth = 48 / 4;
-  powerupParticles[4].frameHeight = 32;
+  powerupParticles[4].w = 200;
+  powerupParticles[4].h = 50;
+  powerupParticles[4].frameWidth = 200 / 4;
+  powerupParticles[4].frameHeight = 50;
   powerupParticles[4].numberOfFrames = 4;
   powerupParticles[4].frameNumber = 0;
   powerupParticles[4].health = 0;
-  powerupParticles[4].type = POWER_UP_DOUBLE_ENEMY_DAMAGE;
+  powerupParticles[4].type = POWER_UP_DOUBLE_ENEMY_DAMAGE | BOX;
   powerupParticles[4].isAlive = true;
 
   powerupParticles[5].dx = 0;
@@ -274,7 +321,7 @@ void particle_init() {
   powerupParticles[5].numberOfFrames = 3;
   powerupParticles[5].frameNumber = 0;
   powerupParticles[5].health = 0;
-  powerupParticles[5].type = POWER_UP_SPREAD;
+  powerupParticles[5].type = POWER_UP_SPREAD | BOX;
   powerupParticles[5].isAlive = true;
 
   enemyParticles[0].dx = 0;
@@ -345,10 +392,10 @@ void particle_init() {
   bossParticles[0].dx = 0;
   bossParticles[0].dy = 1;
   bossParticles[0].image = LoadTexture("../src/assets/images/orca.png");
-  bossParticles[0].w = 150 * 2;
-  bossParticles[0].h = 84;
-  bossParticles[0].frameWidth = 150;
-  bossParticles[0].frameHeight = 84;
+  bossParticles[0].w = 200;
+  bossParticles[0].h = 56;
+  bossParticles[0].frameWidth = 100;
+  bossParticles[0].frameHeight = 56;
   bossParticles[0].numberOfFrames = 2;
   bossParticles[0].frameNumber = 0;
   bossParticles[0].health = 25;
@@ -404,4 +451,43 @@ void particle_update_animation(ParticleSystem *system, unsigned long count) {
   for (int i = 0; i < MAX_PARTICLES; i++) {
     particle_animate(&system->particles[i], count);
   }
+}
+
+void particle_queue_pattern(ParticleSystem *powerup, ParticleSystem *enemy,
+                            ParticleSystem *boss, unsigned long framCount) {
+  // Can I generate a pattern at this time?
+  for (int i = 0; i < MAX_PARTICLES; i++) {
+    if (powerup->particles[i].y < 0 && powerup->particles[i].isAlive) {
+      return;
+    }
+    if (enemy->particles[i].y < 0 && enemy->particles[i].isAlive) {
+      return;
+    }
+    if (boss->particles[i].y < 0 && boss->particles[i].isAlive) {
+      return;
+    }
+  }
+  // Do I delay generation?
+  // Do I generate a single line or multiple pattern
+  // Which patterd do I choose:
+}
+
+int interval(unsigned long frameCount, const int fps) {
+  int time = frameCount * fps;
+  if (time < 30) {
+    return 0;
+  } else if (time < 75) {
+    return 1;
+  } else if (time < 150) {
+    return 2;
+  } else if (time < 240) {
+    return 3;
+  } else {
+    return 4;
+  }
+}
+
+int gap(unsigned long frameCount) {
+  int delay = 8 - 2 * interval(frameCount, 60);
+  return delay > 0 ? delay : 0;
 }
