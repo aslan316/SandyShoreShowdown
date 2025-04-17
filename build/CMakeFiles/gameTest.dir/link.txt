@@ -1,0 +1,1 @@
+/usr/bin/clang -g -Xlinker --dependency-file=CMakeFiles/gameTest.dir/link.d CMakeFiles/gameTest.dir/src/test.c.o -o gameTest  -lraylib -lGL -lm -lpthread -ldl -lrt -lX11

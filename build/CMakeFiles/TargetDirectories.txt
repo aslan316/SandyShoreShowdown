@@ -1,0 +1,3 @@
+/home/landenh/school-work/project-based/SandyShoreShowdown/build/CMakeFiles/gameTest.dir
+/home/landenh/school-work/project-based/SandyShoreShowdown/build/CMakeFiles/edit_cache.dir
+/home/landenh/school-work/project-based/SandyShoreShowdown/build/CMakeFiles/rebuild_cache.dir
