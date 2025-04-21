@@ -1,8 +1,9 @@
 #include "raylib.h"
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
-#define MAX_PARTICLES 50
+#define MAX_PARTICLES 500
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 960
 
@@ -28,13 +29,17 @@ typedef enum {
 } ParticleType;
 
 #define SINGLE_LINE_PATTERN_COUNT 6
-ParticleType singleLinePatterns[6][5] = {
-    {ENEMY, ENEMY, ENEMY, ENEMY, ENEMY}, {GAP, ENEMY, POWERUP, ENEMY, GAP},
-    {GAP, GAP, GAP, GAP, GAP},           {ENEMY, ENEMY, GAP, GAP, ENEMY},
-    {POWERUP, GAP, ENEMY, ENEMY, GAP},   {ENEMY, ENEMY, GAP, ENEMY, POWERUP}};
+ParticleType singleLinePatterns[6][12] = {
+    {GAP, ENEMY, GAP, ENEMY, GAP, ENEMY, GAP, ENEMY, GAP, ENEMY, GAP, ENEMY},
+    {GAP, GAP, GAP, ENEMY, GAP, POWERUP, GAP, ENEMY, GAP, GAP},
+    {GAP, GAP, GAP, GAP, GAP, GAP, GAP, GAP, GAP, GAP, GAP, GAP},
+    {GAP, GAP, ENEMY, ENEMY, ENEMY, GAP, GAP, ENEMY, ENEMY, ENEMY, GAP},
+    {POWERUP, GAP, ENEMY, GAP, GAP, ENEMY, ENEMY, ENEMY, GAP, ENEMY, GAP, GAP},
+    {ENEMY, ENEMY, GAP, ENEMY, POWERUP, ENEMY, ENEMY, GAP, ENEMY, POWERUP, GAP,
+     ENEMY}};
 
 #define MULTI_LINE_PATTERN_COUNT 4
-ParticleType multipleLinePattern[12][5] = {
+ParticleType multipleLinePattern[12][12] = {
     {ENEMY, ENEMY, ENEMY, ENEMY, ENEMY},
     {ENEMY, ENEMY, BOSS_EEL, ENEMY, ENEMY},
     {ENEMY, ENEMY, GAP, ENEMY, ENEMY},
@@ -103,12 +108,18 @@ void particle_create_enemy(Particle *particle, int particleType, int x);
 void particle_queue_pattern(ParticleSystem *powerup, ParticleSystem *enemy,
                             ParticleSystem *boss, unsigned long frameCount);
 int interval(unsigned long frameCount, const int fps);
-int gap(unsigned long frameCount);
+void parse_input(double *shark_acceleration);
+void draw_character(int frameCount);
 
-unsigned long lastPatternTime = 0;
+void background(unsigned long frameCount);
+Texture2D sand;
+Texture2D tiki;
+Texture2D palm;
+Texture2D rock;
+Particle shark;
+double shark_acceleration = 0;
 
 int main() {
-
   InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sandy Shore Tech Demo 4");
   SetTargetFPS(60);
   particle_init();
@@ -117,7 +128,24 @@ int main() {
   ParticleSystem *powerups = particle_system_init(10);
   unsigned long count = 0;
 
+  sand = LoadTexture("../src/assets/images/sand.png");
+  tiki = LoadTexture("../src/assets/images/tiki.png");
+  palm = LoadTexture("../src/assets/images/palmtree.png");
+  rock = LoadTexture("../src/assets/images/rock.png");
+  shark.image = LoadTexture("../src/assets/images/shark.png");
+  shark.isAlive = true;
+  shark.frameNumber = 1;
+  shark.frameWidth = 30;
+  shark.frameHeight = 80;
+  shark.x = SCREEN_WIDTH / 2 - shark.frameWidth / 2;
+  shark.y = SCREEN_HEIGHT - shark.frameHeight - 20;
+  shark.numberOfFrames = 4;
+
   while (!WindowShouldClose()) {
+    if (IsCursorOnScreen()) {
+      DisableCursor();
+    }
+
     count++;
     particle_queue_pattern(powerups, enemies, bosses, count);
 
@@ -129,13 +157,15 @@ int main() {
 
     particle_update_system(powerups);
     particle_update_animation(powerups, count);
+    parse_input(&shark_acceleration);
 
     BeginDrawing();
-
     ClearBackground(RAYWHITE);
+    background(count);
     particle_draw_system(enemies);
     particle_draw_system(bosses);
     particle_draw_system(powerups);
+    draw_character(count);
     EndDrawing();
   }
 
@@ -146,6 +176,39 @@ int main() {
   particle_free();
 
   return 0;
+}
+
+void parse_input(double *acceleration) {
+  int lastKey = GetKeyPressed();
+  bool left = IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT);
+  bool right = IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT);
+  if (right && shark.x + 1 + (20 * *acceleration) < 482 && !left) {
+    if (*acceleration < 0) {
+      *acceleration = 0;
+    }
+    shark.x += 1 + (20 * *acceleration);
+    *acceleration += 0.005;
+  } else if (left && shark.x + -1 + (20 * *acceleration) > 130 && !right) {
+    if (*acceleration > 0) {
+      *acceleration = 0;
+    }
+    shark.x += -1 + (20 * *acceleration);
+    *acceleration -= 0.005;
+  } else {
+    *acceleration = 0;
+  }
+  printf("%f\n", *acceleration);
+}
+
+void draw_character(int frameCount) {
+  if (frameCount % 15 == 0) {
+    shark.frameNumber += 1;
+  }
+  int frame = shark.frameNumber % shark.numberOfFrames;
+  Rectangle source = {frame * shark.frameWidth, 0, shark.frameWidth,
+                      shark.frameHeight};
+  Vector2 position = {shark.x, shark.y};
+  DrawTextureRec(shark.image, source, position, WHITE);
 }
 
 ParticleSystem *particle_system_init(int speed) {
@@ -441,7 +504,7 @@ void particle_free() {
 }
 
 void particle_animate(Particle *particle, unsigned long frameCount) {
-  if (frameCount % 30 == 0) {
+  if (frameCount % 15 == 0) {
     particle->frameNumber++;
   }
 }
@@ -452,8 +515,12 @@ void particle_update_animation(ParticleSystem *system, unsigned long count) {
   }
 }
 
+unsigned long nextPatternTime = 0;
 void particle_queue_pattern(ParticleSystem *powerup, ParticleSystem *enemy,
-                            ParticleSystem *boss, unsigned long framCount) {
+                            ParticleSystem *boss, unsigned long frameCount) {
+  if (frameCount < nextPatternTime) {
+    return;
+  }
   // Can I generate a pattern at this time?
   for (int i = 0; i < MAX_PARTICLES; i++) {
     if (powerup->particles[i].y < 0 && powerup->particles[i].isAlive) {
@@ -468,42 +535,89 @@ void particle_queue_pattern(ParticleSystem *powerup, ParticleSystem *enemy,
   }
   // Do I delay generation?
   int r = GetRandomValue(0, SINGLE_LINE_PATTERN_COUNT - 1);
-  for (int i = 0; i < 5; i++) {
+  for (int i = 4; i < 12 + 4; i++) {
     switch ((int)singleLinePatterns[r][i]) {
     case ENEMY:
       int e = GetRandomValue(0, 4);
       particle_enemy_system_create_particle(enemy, e, i * 32);
       break;
     case POWERUP:
+      int f = GetRandomValue(0, 5);
+      particle_power_system_create_particle(powerup, f, i * 32);
       break;
     case BOSS_ORCA:
+      particle_boss_system_create_particle(boss, 0, i * 32);
       break;
     case BOSS_EEL:
+      particle_boss_system_create_particle(boss, 1, i * 32);
       break;
     case BOSS_KRAKEN:
+      particle_boss_system_create_particle(boss, 2, i * 32);
       break;
     }
   }
   // Do I generate a single line or multiple pattern
   // Which patterd do I choose:
+
+  nextPatternTime = frameCount + interval(frameCount, 60) * 60;
 }
 
 int interval(unsigned long frameCount, const int fps) {
-  int time = frameCount * fps;
-  if (time < 30) {
+  if (fps == 0) {
     return 0;
+  }
+
+  int time = frameCount / fps;
+  if (time < 30) {
+    return 6;
   } else if (time < 75) {
-    return 1;
-  } else if (time < 150) {
+    return 4;
+  } else if (time < 149) {
     return 2;
   } else if (time < 240) {
-    return 3;
+    return 1;
   } else {
-    return 4;
+    return 0;
   }
 }
 
-int gap(unsigned long frameCount) {
-  int delay = 8 - 2 * interval(frameCount, GetFPS());
-  return delay > 0 ? delay : 0;
+void background(unsigned long frameCount) {
+  for (int i = -32 + frameCount % 32; i < SCREEN_HEIGHT; i += 32) {
+    for (int j = 0; j < SCREEN_WIDTH; j += 32) {
+      DrawTexture(sand, j, i, WHITE);
+    }
+  }
+
+  for (int i = -32 + frameCount % 32; i < SCREEN_HEIGHT; i += 32) {
+    DrawTexture(rock, 32 * 3, i, WHITE);
+    DrawTexture(rock, SCREEN_WIDTH - 32 * 4, i, WHITE);
+  }
+
+  Rectangle r = {32 * (frameCount / 10 % 5), 0, 32, 64};
+  Vector2 p;
+  for (int i = -128 + frameCount % 128; i < SCREEN_HEIGHT; i += 128) {
+    p.x = 0;
+    p.y = i;
+    DrawTextureRec(palm, r, p, WHITE);
+    p.x = SCREEN_WIDTH - 32;
+    DrawTextureRec(palm, r, p, WHITE);
+  }
+
+  r.x = 0;
+  for (int i = -64 + frameCount % 128; i < SCREEN_HEIGHT; i += 128) {
+    p.y = i;
+    p.x = 32;
+    DrawTextureRec(tiki, r, p, WHITE);
+    p.x = SCREEN_WIDTH - 32 * 2;
+    DrawTextureRec(tiki, r, p, WHITE);
+  }
+
+  r.x = 0;
+  for (int i = -128 + frameCount % 128; i < SCREEN_HEIGHT; i += 128) {
+    p.x = 32 * 2;
+    p.y = i;
+    DrawTextureRec(tiki, r, p, WHITE);
+    p.x = SCREEN_WIDTH - 32 * 3;
+    DrawTextureRec(tiki, r, p, WHITE);
+  }
 }
