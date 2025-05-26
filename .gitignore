@@ -1,3 +1,5 @@
+**/build/**
+
 # Vim tmp file
 *.swp
 
